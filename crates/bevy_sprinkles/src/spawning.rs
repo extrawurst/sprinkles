@@ -1,5 +1,8 @@
 use bevy::{
-    light::NotShadowCaster, pbr::ExtendedMaterial, prelude::*, render::storage::ShaderBuffer,
+    light::NotShadowCaster,
+    pbr::ExtendedMaterial,
+    prelude::*,
+    render::{render_resource::encase::StorageBuffer, storage::ShaderBuffer},
 };
 
 use crate::{
@@ -655,8 +658,16 @@ pub fn write_emitter_uniforms(
             trail_thickness_curve,
         };
 
-        if let Some(mut buffer) = buffers.get_mut(&buffer_handle.emitter_uniforms_buffer) {
-            buffer.set_data(uniforms);
+        // get_mut re-uploads the buffer, a new one each frame; most emitters don't move
+        let mut bytes = StorageBuffer::new(Vec::new());
+        bytes.write(&uniforms).unwrap();
+        let bytes = bytes.into_inner();
+        if buffers
+            .get(&buffer_handle.emitter_uniforms_buffer)
+            .is_some_and(|buffer| buffer.data.as_ref() != Some(&bytes))
+            && let Some(mut buffer) = buffers.get_mut(&buffer_handle.emitter_uniforms_buffer)
+        {
+            buffer.data = Some(bytes);
         }
     }
 }
